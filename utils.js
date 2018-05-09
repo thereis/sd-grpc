@@ -9,3 +9,9 @@ export const chunker = (arr, len) => {
 
   return chunks;
 };
+
+export const convertToInt = array => {
+  return array.map(item => {
+    return parseFloat(item);
+  });
+};

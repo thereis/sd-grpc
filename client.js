@@ -1,5 +1,8 @@
 import { readFileSync } from "fs";
-import { chunker } from "./utils";
+import { chunker, convertToInt } from "./utils";
+
+var grpc = require("grpc");
+var protoDescriptor = grpc.load("./grpc.proto");
 
 /**
  * Load the file synchronous
@@ -28,6 +31,16 @@ const init = async () => {
   const maxChunks = 3;
   const chunkDivisor = Math.ceil(numbersLength / maxChunks);
   const chunks = chunker(numbers, chunkDivisor);
+
+  let client = new protoDescriptor.SD.Project.SendChunk(
+    "0.0.0.0:50051",
+    grpc.credentials.createInsecure()
+  );
+
+  let call = client.sendChunk((error, result) => console.log(error, result));
+
+  call.write({ numbers: convertToInt(chunks[0]) });
+  call.end();
 };
 
 /**

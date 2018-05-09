@@ -3,13 +3,13 @@ syntax = "proto3";
 package SD.Project;
 
 message Chunk {
-    int64 number = 1;
+    repeated double numbers = 1;
 }
 
 message Result {
-    int64 orderedNumbers = 1;
+    repeated double orderedNumbers = 1;
 }
 
-service Chunks {
+service SendChunk {
     rpc sendChunk(stream Chunk) returns (Result);
 }
