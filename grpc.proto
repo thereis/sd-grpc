@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package SD.Project;
+
+message Chunk {
+    int64 number = 1;
+}
+
+message Result {
+    int64 orderedNumbers = 1;
+}
+
+service Chunks {
+    rpc sendChunk(stream Chunk) returns (Result);
+}
