@@ -1,8 +1,8 @@
 import { readFileSync } from "fs";
-import { chunker, convertToInt } from "./utils";
+import { chunker, convertToDouble } from "./utils";
 
-var grpc = require("grpc");
-var protoDescriptor = grpc.load("./grpc.proto");
+let grpc = require("grpc");
+let protoDescriptor = grpc.load("./grpc.proto");
 
 /**
  * Load the file synchronous
@@ -39,7 +39,9 @@ const init = async () => {
 
   let call = client.sendChunk((error, result) => console.log(error, result));
 
-  call.write({ numbers: convertToInt(chunks[0]) });
+
+  call.write({ numbers: convertToDouble(chunks[0]) });
+
   call.end();
 };
 

@@ -10,7 +10,7 @@ export const chunker = (arr, len) => {
   return chunks;
 };
 
-export const convertToInt = array => {
+export const convertToDouble = array => {
   return array.map(item => {
     return parseFloat(item);
   });
