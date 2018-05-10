@@ -10,6 +10,16 @@ message Result {
     repeated double orderedNumbers = 1;
 }
 
+message ResultAgentInfo {
+    bool connected = 1;
+}
+
+message AgentInfo {
+    string name = 1;
+    string details = 2;
+}
+
 service SendChunk {
     rpc sendChunk(stream Chunk) returns (Result);
+    rpc connectAgent(stream AgentInfo) returns(ResultAgentInfo);
 }
