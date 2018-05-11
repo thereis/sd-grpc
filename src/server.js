@@ -2,6 +2,7 @@ import { readFileSync } from "fs";
 import { chunker, convertToDouble } from "./utils";
 
 import grpc from "grpc";
+import DataStore from "./store";
 
 /**
  * Load the file synchronous
@@ -9,7 +10,7 @@ import grpc from "grpc";
 const loadFile = async () => {
   console.log("Loading file...");
 
-  let content = await readFileSync("data.in", "utf8");
+  let content = await readFileSync(__dirname + "/data/data.in", "utf8");
 
   return content.toString().split("\n");
 };
@@ -17,7 +18,8 @@ const loadFile = async () => {
 /**
  * Global variables
  */
-let protoDescriptor = grpc.load("./grpc.proto");
+
+let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto");
 let connectedAgents = [];
 
 function createServer() {
@@ -39,13 +41,11 @@ function createServer() {
     /**
      * If there is a new connected agent
      */
-
     call.on("data", data => {
       console.log(`New agent connected! Name: ${data.name}`);
-      connectedAgent = { id: connectedAgents.length + 1, data };
-      connectedAgents.push(connectAgent);
-      //connectedAgents.push({});
-      console.log(`Agents connected: ${connectedAgents.length}`);
+      connectedAgent = { id: DataStore.totalAgents + 1, data };
+      DataStore.addAgent(connectedAgent);
+      console.log(`Agents connected: ${DataStore.totalAgents}`);
     });
 
     /**
@@ -62,11 +62,9 @@ function createServer() {
       console.log(`Agent ${connectedAgent.id} has been disconnected.`);
 
       // It will pop the disconnected agent
-      connectedAgents = connectedAgents.filter(
-        agent => agent.id !== connectAgent.id
-      );
+      DataStore.removeAgent(connectedAgent);
 
-      console.log(`Now we have ${connectedAgents.length} connected agent(s).`);
+      console.log(`Now we have ${DataStore.totalAgents} connected agent(s).`);
     });
 
     call.on("status", status => {
@@ -82,7 +80,6 @@ function createServer() {
     console.log("callHeaders", call);
 
     call.on("data", item => {
-      //console.log("Received: ", item);
       data = item.numbers;
     });
 
