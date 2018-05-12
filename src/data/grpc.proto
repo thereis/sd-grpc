@@ -11,7 +11,7 @@ message Result {
 }
 
 message ResultAgentInfo {
-    bool connected = 1;
+    bool isConnected = 1;
 }
 
 message AgentInfo {
@@ -19,7 +19,12 @@ message AgentInfo {
     string details = 2;
 }
 
+message ClientInfo {
+    bool isConnected = 1;
+}
+
 service SendChunk {
     rpc sendChunk(stream Chunk) returns (Result);
-    rpc connectAgent(stream AgentInfo) returns(ResultAgentInfo);
+    rpc connectAgent(stream AgentInfo) returns (ResultAgentInfo);
+    rpc connectClient(stream ClientInfo) returns (ClientInfo);
 }

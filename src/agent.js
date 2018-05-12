@@ -1,8 +1,9 @@
 import { readFileSync } from "fs";
 import { chunker, convertToDouble } from "./utils";
 
-let grpc = require("grpc");
-let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto");
+import grpc from "grpc";
+import AgentProvider from "./store/agent";
+import { observe } from "mobx";
 
 /**
  * Main application function
@@ -10,35 +11,59 @@ let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto");
 const init = async () => {
   try {
     /**
-     * Instantiate a new connection to the server
+     * Local variables
      */
-    let client = new protoDescriptor.SD.Project.SendChunk(
+    let AgentStore = new AgentProvider();
+
+    observe(AgentStore, e => {
+      console.log(e);
+    });
+
+    /**
+     * Initialize grpc.proto and then connects to masterserver
+     */
+    let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto");
+    let agent = new protoDescriptor.SD.Project.SendChunk(
       "0.0.0.0:50051",
       grpc.credentials.createInsecure()
     );
 
-    /**
-     * Connect and register the client into master server
-     */
-    let connectClient = client.connectAgent((error, result) =>
-      console.log(error, result)
-    );
+    while (true) {
+      /**
+       * Connect and register the agent into master
+       * server and wait for the result
+       */
+      let connectAgent = agent.connectAgent((error, result) => {
+        console.log(error, result, "oioioi");
 
-    let isConnected = connectClient.write({
-      name: "Servidor 1",
-      details: "oi"
-    });
+        AgentStore.isConnected = result.isConnected;
+      });
 
-    if (isConnected) console.log("Connected to the master server!");
-    else return console.log(`You're not able to connect to the master server`);
+      /**
+       * register the agent information to the server
+       */
+      let teste = connectAgent.write({
+        name: "Servidor 1",
+        details: "oi"
+      });
 
-    //connectClient.end();
+      connectAgent.end();
 
-    //let call = client.sendChunk((error, result) => console.log(error, result));
+      if (AgentStore.isConnected) console.log("isconnectedbitch");
 
-    //call.write({ numbers: convertToDouble(chunks[0]) });
+      //let response = connectAgent.end();
 
-    //call.end();
+      //if (response) console.log("Connected to the master server!");
+      //else return console.log(`You're not able to connect to the master server`);
+
+      //connectClient.end();
+
+      //let call = client.sendChunk((error, result) => console.log(error, result));
+
+      //call.write({ numbers: convertToDouble(chunks[0]) });
+
+      //call.end();
+    }
   } catch (e) {
     console.log(e);
   }

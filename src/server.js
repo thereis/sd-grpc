@@ -27,13 +27,20 @@ function createServer() {
 
   server.addService(protoDescriptor.SD.Project.SendChunk.service, {
     sendChunk,
-    connectAgent
+    connectAgent,
+    connectClient
   });
 
   server.bind("0.0.0.0:50051", grpc.ServerCredentials.createInsecure());
   server.start();
 
   console.log("Server is running on port 50051");
+
+  function connectClient(call, callback) {
+    call.on("data", data => {
+      console.log(data);
+    });
+  }
 
   function connectAgent(call, callback) {
     let connectedAgent;
@@ -44,7 +51,9 @@ function createServer() {
     call.on("data", data => {
       console.log(`New agent connected! Name: ${data.name}`);
       connectedAgent = { id: DataStore.totalAgents + 1, data };
+
       DataStore.addAgent(connectedAgent);
+
       console.log(`Agents connected: ${DataStore.totalAgents}`);
     });
 
@@ -65,6 +74,8 @@ function createServer() {
       DataStore.removeAgent(connectedAgent);
 
       console.log(`Now we have ${DataStore.totalAgents} connected agent(s).`);
+
+      callback(null, false);
     });
 
     call.on("status", status => {
