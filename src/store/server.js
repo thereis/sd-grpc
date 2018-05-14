@@ -1,6 +1,6 @@
 import { observable, action, computed, decorate } from "mobx";
 
-class DataProvider {
+class ServerProvider {
   agents = [];
   client = [];
 
@@ -22,7 +22,7 @@ class DataProvider {
   }
 }
 
-decorate(DataProvider, {
+decorate(ServerProvider, {
   agents: observable,
   client: observable,
   addAgent: action,
@@ -31,6 +31,6 @@ decorate(DataProvider, {
   isClientConnected: computed
 });
 
-const DataStore = new DataProvider();
+const ServerStore = new ServerProvider();
 
-export default DataStore;
+export default ServerStore;

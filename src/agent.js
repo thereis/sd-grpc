@@ -1,13 +1,9 @@
-import { readFileSync } from "fs";
-import { chunker, convertToDouble } from "./utils";
+import { hostname, type } from "os";
+import { observe } from "mobx";
+import { argv } from "yargs";
 
 import grpc from "grpc";
 import AgentProvider from "./store/agent";
-import { observe, reaction } from "mobx";
-
-import { hostname, type } from "os";
-
-import { argv } from "yargs";
 
 /**
  * Main application function

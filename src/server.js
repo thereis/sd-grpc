@@ -1,9 +1,8 @@
 import { readFileSync } from "fs";
 import { chunker, convertToDouble } from "./utils";
-import grpc from "grpc";
-import DataStore from "./store";
-
 import ip from "ip";
+import grpc from "grpc";
+import ServerStore from "./store/server";
 
 /**
  * Load the file synchronous
@@ -26,12 +25,14 @@ let connectedAgents = [];
 function createServer() {
   const server = new grpc.Server();
 
+  // Register the SendChunk service and methods
   server.addService(protoDescriptor.SendChunk.service, {
     sendChunk,
     connectAgent,
     connectClient
   });
 
+  // Bind to the internal + external addresses
   server.bind("0.0.0.0:50051", grpc.ServerCredentials.createInsecure());
   server.start();
 
@@ -43,6 +44,9 @@ function createServer() {
     });
   }
 
+  /**
+   * Handles the Agent events
+   */
   function connectAgent(call) {
     let connectedAgent;
 
@@ -53,28 +57,40 @@ function createServer() {
       });
     }, 100);
 
+    /**
+     * On first data received, register the agent
+     */
     call.on("data", data => {
       console.log(`New agent connected! Name: ${data.name} OS: ${data.os}`);
-      connectedAgent = { id: DataStore.totalAgents + 1, data };
+      connectedAgent = { id: ServerStore.totalAgents + 1, data };
 
-      DataStore.addAgent(connectedAgent);
+      ServerStore.addAgent(connectedAgent);
 
-      console.log(`Agents connected: ${DataStore.totalAgents}`);
+      console.log(`Agents connected: ${ServerStore.totalAgents}`);
     });
 
+    /**
+     * If the agent disconnect, remove him from the list
+     * and clear the message interval
+     */
     call.on("cancelled", () => {
+      // Clear the message interval
       clearTimeout(streamInterval);
 
       console.log(`Agent ${connectedAgent.id} has been disconnected.`);
 
-      // It will pop the disconnected agent
-      DataStore.removeAgent(connectedAgent);
+      // It remove from the list
+      ServerStore.removeAgent(connectedAgent);
 
-      console.log(`Now we have ${DataStore.totalAgents} connected agent(s).`);
+      console.log(`Now we have ${ServerStore.totalAgents} connected agent(s).`);
     });
 
+    /**
+     * If something weird happen
+     */
     call.on("error", e => {
-      console.log(e);
+      console.log(`Oops, something wrong happened! Agent ID: ${connectAgent.id}
+      Error: ${e}`);
     });
 
     call.on("end", () => {
@@ -82,63 +98,6 @@ function createServer() {
       console.log("Client disconnected!");
     });
   }
-
-  // function connectAgent(call, callback) {
-  //   let connectedAgent;
-
-  //   console.log(call, callback);
-
-  //   console.log(`New agent connected! Name: ${call.request.name}`);
-  //   connectedAgent = { id: DataStore.totalAgents + 1, data: call.request };
-
-  //   DataStore.addAgent(connectedAgent);
-
-  //   console.log(`Agents connected: ${DataStore.totalAgents}`);
-
-  //   callback(null, { isConnected: true });
-  // }
-
-  // function connectAgent(call, callback) {
-  // // function connectAgent(call, metadata, serialize, deserialize) {
-  //   let connectedAgent;
-
-  //   /**
-  //    * If there is a new connected agent
-  //    */
-  //   call.on("data", data => {
-  //     console.log(`New agent connected! Name: ${data.name}`);
-  //     connectedAgent = { id: DataStore.totalAgents + 1, data };
-
-  //     DataStore.addAgent(connectedAgent);
-
-  //     console.log(`Agents connected: ${DataStore.totalAgents}`);
-  //   });
-
-  //   /**
-  //    * If something wrong occurs
-  //    */
-  //   call.on("error", e => {
-  //     console.log(`Something wrong happened. The error is: ${e}`);
-  //   });
-
-  //   /**
-  //    * If the agent closes the connection
-  //    */
-  //   call.on("cancelled", () => {
-  //     console.log(`Agent ${connectedAgent.id} has been disconnected.`);
-
-  //     // It will pop the disconnected agent
-  //     DataStore.removeAgent(connectedAgent);
-
-  //     console.log(`Now we have ${DataStore.totalAgents} connected agent(s).`);
-  //   });
-
-  //   call.on("status", status => {
-  //     console.log(status, "status here");
-  //   });
-
-  //   call.on("end", () => callback(null, true));
-  // }
 
   function sendChunk(call, callback) {
     let data = [];
