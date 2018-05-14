@@ -2,7 +2,11 @@ import { observable, action, computed, decorate } from "mobx";
 
 class ServerProvider {
   agents = [];
-  client = [];
+  client = false;
+
+  setClientStatus(status) {
+    return (this.client = status);
+  }
 
   addAgent(agent) {
     this.agents.push(agent);
@@ -18,13 +22,14 @@ class ServerProvider {
   }
 
   get isClientConnected() {
-    return this.client.length !== 0 ? true : false;
+    return this.client;
   }
 }
 
 decorate(ServerProvider, {
   agents: observable,
   client: observable,
+  setClientStatus: action,
   addAgent: action,
   removeAgent: action,
   totalAgents: computed,

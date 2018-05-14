@@ -20,7 +20,6 @@ const loadFile = async () => {
  */
 
 let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto").SD.Project;
-let connectedAgents = [];
 
 function createServer() {
   const server = new grpc.Server();
@@ -38,10 +37,14 @@ function createServer() {
 
   console.log(`Masterserver is up! IP: ${ip.address()} Port: 50051`);
 
-  function connectClient(call, callback) {
+  function connectClient(call) {
     call.on("data", data => {
       console.log(data);
+
+      ServerStore.setClientStatus(true);
     });
+
+    call.write({ isConnected: true });
   }
 
   /**
@@ -50,12 +53,22 @@ function createServer() {
   function connectAgent(call) {
     let connectedAgent;
 
+    /**
+     * Keep alive method
+     */
     let streamInterval = setInterval(() => {
-      call.write({
-        agentConnected: false,
-        details: JSON.stringify({ isConnected: true })
-      });
-    }, 100);
+      if (ServerStore.isClientConnected) {
+        call.write({
+          agentConnected: true,
+          clientConnected: true
+        });
+      } else {
+        call.write({
+          agentConnected: true,
+          details: JSON.stringify({ isConnected: true })
+        });
+      }
+    }, 1000);
 
     /**
      * On first data received, register the agent
@@ -77,7 +90,7 @@ function createServer() {
       // Clear the message interval
       clearTimeout(streamInterval);
 
-      console.log(`Agent ${connectedAgent.id} has been disconnected.`);
+      console.log(`Agent ${connectedAgent.data.name} has been disconnected.`);
 
       // It remove from the list
       ServerStore.removeAgent(connectedAgent);

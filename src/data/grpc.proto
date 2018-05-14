@@ -17,6 +17,7 @@ message Result {
 message ResultAgentInfo {
     bool agentConnected = 1;
     string details = 2;
+    bool clientConnected = 3;
 }
 
 message AgentInfo {
@@ -25,7 +26,8 @@ message AgentInfo {
 }
 
 message ClientInfo {
-    bool isConnected = 1;
+    string name = 1;
+    string os = 2;
 }
 
 message ResultClientInfo {

@@ -52,8 +52,8 @@ const init = async () => {
     console.log("Connecting...");
 
     /**
-     * Connect and register the agent into master
-     * server and wait for the result
+     * Connect and register the agent into masterserver
+     * and wait for the result
      */
     let connectAgent = agent.connectAgent((error, result) => {
       if (error) {
@@ -84,10 +84,15 @@ const init = async () => {
      * then we register this status through AgentStore and fire isConnectedHandler
      */
     connectAgent.on("data", data => {
-      // console.log(data);
-      let details = JSON.parse(data.details);
+      let details;
 
-      if (AgentStore.status === false && details.isConnected === true) {
+      console.log(data);
+
+      if (data.details) {
+        details = JSON.parse(data.details);
+      }
+
+      if (AgentStore.status === false && data.agentConnected === true) {
         AgentStore.setStatus(true);
       }
     });
