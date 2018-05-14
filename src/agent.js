@@ -36,7 +36,7 @@ const init = async () => {
     observe(AgentStore, e => {
       switch (e.type) {
         case "update":
-          // Detect updates in isConnected
+          // Detect updates in isConnected observable
           if (e.name === "isConnected") {
             isConnectedHandler();
           }
@@ -92,7 +92,6 @@ const init = async () => {
       let details = JSON.parse(data.details);
 
       if (AgentStore.status === false && details.isConnected === true) {
-        console.log("entrei aq");
         AgentStore.setStatus(true);
       }
     });
