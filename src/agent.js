@@ -71,7 +71,7 @@ const init = async () => {
      */
     const isConnectedHandler = async () => {
       console.log(
-        "Connnected to the masterserver... waiting for the client to be connected."
+        "Connected to the masterserver... waiting for the client to be connected."
       );
     };
 
