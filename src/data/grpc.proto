@@ -21,7 +21,7 @@ message ResultAgentInfo {
 
 message AgentInfo {
     string name = 1;
-    string details = 2;
+    string os = 2;
 }
 
 message ClientInfo {

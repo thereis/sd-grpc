@@ -80,7 +80,7 @@ const init = async () => {
      */
     connectAgent.write({
       name: hostname(),
-      details: JSON.stringify({ os: type() })
+      os: type()
     });
 
     /**

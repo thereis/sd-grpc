@@ -1,8 +1,9 @@
 import { readFileSync } from "fs";
 import { chunker, convertToDouble } from "./utils";
-
 import grpc from "grpc";
 import DataStore from "./store";
+
+import ip from "ip";
 
 /**
  * Load the file synchronous
@@ -34,7 +35,7 @@ function createServer() {
   server.bind("0.0.0.0:50051", grpc.ServerCredentials.createInsecure());
   server.start();
 
-  console.log("Server is running on port 50051");
+  console.log(`Masterserver is up! IP: ${ip.address()} Port: 50051`);
 
   function connectClient(call, callback) {
     call.on("data", data => {
@@ -53,9 +54,7 @@ function createServer() {
     }, 100);
 
     call.on("data", data => {
-      let details = JSON.parse(data.details);
-
-      console.log(`New agent connected! Name: ${data.name} OS: ${details.os}`);
+      console.log(`New agent connected! Name: ${data.name} OS: ${data.os}`);
       connectedAgent = { id: DataStore.totalAgents + 1, data };
 
       DataStore.addAgent(connectedAgent);
