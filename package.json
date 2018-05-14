@@ -5,8 +5,7 @@
   "main": "index.js",
   "scripts": {
     "agent": "nodemon src/agent --exec babel-node --presets es2015,stage-2",
-    "masterserver":
-      "nodemon src/server --exec babel-node --presets es2015,stage-2",
+    "masterserver": "nodemon src/server --exec babel-node --presets es2015,stage-2",
     "client": "nodemon src/client --exec babel-node --presets es2015,stage-2",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -22,7 +21,9 @@
     "nodemon": "^1.17.3"
   },
   "dependencies": {
+    "argv": "0.0.2",
     "grpc": "^1.11.3",
-    "mobx": "^4.2.1"
+    "mobx": "^4.2.1",
+    "yargs": "^11.0.0"
   }
 }

@@ -2,6 +2,10 @@ syntax = "proto3";
 
 package SD.Project;
 
+message Struct {
+    string value = 1;
+}
+
 message Chunk {
     repeated double numbers = 1;
 }
@@ -11,7 +15,8 @@ message Result {
 }
 
 message ResultAgentInfo {
-    bool isConnected = 1;
+    bool agentConnected = 1;
+    string details = 2;
 }
 
 message AgentInfo {
@@ -23,8 +28,12 @@ message ClientInfo {
     bool isConnected = 1;
 }
 
+message ResultClientInfo {
+    bool isConnected = 1;
+}
+
 service SendChunk {
-    rpc sendChunk(stream Chunk) returns (Result);
-    rpc connectAgent(stream AgentInfo) returns (ResultAgentInfo);
-    rpc connectClient(stream ClientInfo) returns (ClientInfo);
+    rpc sendChunk(stream Chunk) returns (stream Result);
+    rpc connectAgent(stream AgentInfo) returns (stream ResultAgentInfo);
+    rpc connectClient(stream ClientInfo) returns (stream ResultClientInfo);
 }

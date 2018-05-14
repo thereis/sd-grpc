@@ -3,7 +3,11 @@ import { chunker, convertToDouble } from "./utils";
 
 import grpc from "grpc";
 import AgentProvider from "./store/agent";
-import { observe } from "mobx";
+import { observe, reaction } from "mobx";
+
+import { hostname, type } from "os";
+
+import { argv } from "yargs";
 
 /**
  * Main application function
@@ -11,59 +15,121 @@ import { observe } from "mobx";
 const init = async () => {
   try {
     /**
-     * Local variables
+     * Check if arguments have been passed
+     */
+    let ip = argv.ip,
+      port = argv.port;
+
+    if (!ip || !port)
+      throw new Error(
+        "You need to use the --ip and --port flag to initialize the agent."
+      );
+    if (ip === "" || port === true)
+      throw new Error("Provide a value to ip and port.");
+
+    /**
+     * Initialize DataStore
      */
     let AgentStore = new AgentProvider();
 
+    // Observe DataStore reaction
     observe(AgentStore, e => {
-      console.log(e);
+      switch (e.type) {
+        case "update":
+          // Detect updates in isConnected
+          if (e.name === "isConnected") {
+            isConnectedHandler();
+          }
+          break;
+      }
     });
 
     /**
      * Initialize grpc.proto and then connects to masterserver
      */
-    let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto");
-    let agent = new protoDescriptor.SD.Project.SendChunk(
-      "0.0.0.0:50051",
+    let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto").SD.Project;
+    let agent = new protoDescriptor.SendChunk(
+      `${ip}:${port}`,
       grpc.credentials.createInsecure()
     );
 
-    while (true) {
-      /**
-       * Connect and register the agent into master
-       * server and wait for the result
-       */
-      let connectAgent = agent.connectAgent((error, result) => {
-        console.log(error, result, "oioioi");
+    console.log("Connecting...");
 
-        AgentStore.isConnected = result.isConnected;
-      });
+    /**
+     * Connect and register the agent into master
+     * server and wait for the result
+     */
+    let connectAgent = agent.connectAgent((error, result) => {
+      if (error) {
+        console.log(`Something went wrong!\n\nError: ${error}`);
+      }
+    });
 
-      /**
-       * register the agent information to the server
-       */
-      let teste = connectAgent.write({
-        name: "Servidor 1",
-        details: "oi"
-      });
+    /**
+     * If masterserver send us isConnected confirmation,
+     * then we are connected!
+     */
+    const isConnectedHandler = async () => {
+      console.log(
+        "Connnected to the masterserver... waiting for the client to be connected."
+      );
+    };
 
-      connectAgent.end();
+    /**
+     * register the agent information to the masterserver
+     */
+    connectAgent.write({
+      name: hostname(),
+      details: JSON.stringify({ os: type() })
+    });
 
-      if (AgentStore.isConnected) console.log("isconnectedbitch");
+    /**
+     * If the masterserver send us the isConnected message,
+     * then we register this status through AgentStore and fire isConnectedHandler
+     */
+    connectAgent.on("data", data => {
+      // console.log(data);
+      let details = JSON.parse(data.details);
 
-      //let response = connectAgent.end();
+      if (AgentStore.status === false && details.isConnected === true) {
+        console.log("entrei aq");
+        AgentStore.setStatus(true);
+      }
+    });
 
-      //if (response) console.log("Connected to the master server!");
-      //else return console.log(`You're not able to connect to the master server`);
+    /**
+     * If occurs an error
+     */
+    connectAgent.on("error", e => {
+      console.log(
+        `Oops! Probably you've lost the connection to the masterserver.
+        Error: ${e}`
+      );
+    });
 
-      //connectClient.end();
+    /**
+     * Confirmation
+     */
+    connectAgent.on("end", () => {
+      console.log(`The transaction has finished.`);
+    });
 
-      //let call = client.sendChunk((error, result) => console.log(error, result));
+    // connectAgent.end();
 
-      //call.write({ numbers: convertToDouble(chunks[0]) });
+    //if (AgentStore.isConnected) console.log("isconnectedbitch");
 
-      //call.end();
-    }
+    //let response = connectAgent.end();
+
+    //if (response) console.log("Connected to the master server!");
+    //else return console.log(`You're not able to connect to the master server`);
+
+    //connectClient.end();
+
+    //let call = client.sendChunk((error, result) => console.log(error, result));
+
+    //call.write({ numbers: convertToDouble(chunks[0]) });
+
+    //call.end();
   } catch (e) {
     console.log(e);
   }
@@ -72,4 +138,8 @@ const init = async () => {
 /**
  * Initialize the main application
  */
-init();
+
+console.log("Initializing...");
+setTimeout(() => {
+  init();
+}, 1000);
