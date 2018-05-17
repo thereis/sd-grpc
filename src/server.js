@@ -37,9 +37,15 @@ function createServer() {
 
   console.log(`Masterserver is up! IP: ${ip.address()} Port: 50051`);
 
-  function connectClient(call) {
-    call.on("data", data => {
+  async function connectClient(call) {
+    call.on("data", async data => {
       console.log(data);
+
+      if (!ServerStore.fileLoaded) {
+        let content = await loadChunks();
+        ServerStore.setFileContent(content);
+        ServerStore.setFileStatus(true);
+      }
 
       ServerStore.setClientStatus(true);
     });
@@ -51,32 +57,73 @@ function createServer() {
    * Handles the Agent events
    */
   function connectAgent(call) {
-    let connectedAgent;
+    let connectedAgent = {
+      id: 0,
+      data: {},
+      fileLocked: false
+    };
 
     /**
      * Keep alive method
      */
-    let streamInterval = setInterval(() => {
-      if (ServerStore.isClientConnected) {
-        call.write({
-          agentConnected: true,
-          clientConnected: true
-        });
+    let streamInterval = setInterval(async () => {
+      // Check if client is connected
+      if (ServerStore.clientStatus) {
+        // Check if file is already loaded
+
+        if (!connectedAgent.fileLocked) {
+          console.log("vim aqui");
+          dataTrigger(ServerStore.fileContent[connectedAgent.id - 1]);
+          connectedAgent.fileLocked = true;
+          //ServerStore.setFileLocked(true);
+        }
+
+        // send the data
+        // call.write({
+        //   agentConnected: true,
+        //   clientConnected: true,
+        //   numbers: [1, 2, 3]
+        // });
       } else {
         call.write({
           agentConnected: true,
-          details: JSON.stringify({ isConnected: true })
+          clientConnected: false
         });
       }
     }, 1000);
 
+    const dataTrigger = async chunk => {
+      //console.log(ServerStore.fileContent);
+      let content = convertToDouble(chunk); // chega 300k
+
+      let calculation = Math.ceil(content.length * 0.1); // 300k / 3000
+      let teste = chunker(content, calculation / 3);
+
+      console.log(teste.length, "total de arrays", "resultado", calculation);
+
+      for (let value of teste) {
+        //console.log(value)
+        call.write({
+          agentConnected: true,
+          clientConnected: true,
+          numbers: value
+        });
+      }
+
+      call.write({
+        message: "Terminei de processar"
+      });
+    };
     /**
      * On first data received, register the agent
      */
     call.on("data", data => {
-      console.log(`New agent connected! Name: ${data.name} OS: ${data.os}`);
-      connectedAgent = { id: ServerStore.totalAgents + 1, data };
+      let id = ServerStore.totalAgents + 1;
+      console.log(
+        `New agent connected! Name: ${data.name} OS: ${data.os} ID: ${id}`
+      );
 
+      connectedAgent = { id, data };
       ServerStore.addAgent(connectedAgent);
 
       console.log(`Agents connected: ${ServerStore.totalAgents}`);
@@ -136,14 +183,14 @@ const loadChunks = async () => {
      */
     let numbers = await loadFile();
 
-    /**
-     * Numbers configuration
-     */
-    let numbersLength = numbers.length;
+    const maxChunks = ServerStore.totalAgents;
+    //const maxChunks = 3;
+    const chunkDivisor = Math.ceil(numbers.length / maxChunks);
+    const chunks = chunker(numbers, chunkDivisor); // 300k para 3 agents
 
-    const maxChunks = 3;
-    const chunkDivisor = Math.ceil(numbersLength / maxChunks);
-    const chunks = chunker(numbers, chunkDivisor);
+    console.log("File loaded, ready to distribute...");
+
+    return chunks;
   } catch (e) {
     console.log(e);
   }
@@ -151,7 +198,7 @@ const loadChunks = async () => {
 
 const init = async () => {
   createServer();
-  loadChunks();
+  //loadChunks();
 };
 
 init();

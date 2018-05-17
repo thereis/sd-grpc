@@ -32,8 +32,8 @@ const init = async () => {
     observe(AgentStore, e => {
       switch (e.type) {
         case "update":
-          // Detect updates in isConnected observable
-          if (e.name === "isConnected") {
+          // Detect updates in isAgentConnected observable
+          if (e.name === "agentConnected") {
             isConnectedHandler();
           }
           break;
@@ -79,6 +79,8 @@ const init = async () => {
       os: type()
     });
 
+    let count = 0;
+
     /**
      * If the masterserver send us the isConnected message,
      * then we register this status through AgentStore and fire isConnectedHandler
@@ -86,14 +88,23 @@ const init = async () => {
     connectAgent.on("data", data => {
       let details;
 
-      console.log(data);
+      count = count + 1;
+
+      if (data.message !== "") {
+        //console.log(data);
+        console.log(count, "total de envios");
+      }
+
+      console.log(data.numbers.length, "recebi isso de numeros");
+
+      //console.log(data);
 
       if (data.details) {
         details = JSON.parse(data.details);
       }
 
-      if (AgentStore.status === false && data.agentConnected === true) {
-        AgentStore.setStatus(true);
+      if (AgentStore.agentStatus === false && data.agentConnected === true) {
+        AgentStore.setAgentStatus(true);
       }
     });
 

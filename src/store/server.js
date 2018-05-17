@@ -2,10 +2,13 @@ import { observable, action, computed, decorate } from "mobx";
 
 class ServerProvider {
   agents = [];
-  client = false;
+  clientConnected = false;
+  fileLoaded = false;
+  fileContent = null;
+  fileLocked = false;
 
   setClientStatus(status) {
-    return (this.client = status);
+    return (this.clientConnected = status);
   }
 
   addAgent(agent) {
@@ -21,19 +24,36 @@ class ServerProvider {
     return this.agents.length;
   }
 
-  get isClientConnected() {
-    return this.client;
+  get clientStatus() {
+    return this.clientConnected;
+  }
+
+  setFileStatus(status) {
+    return (this.fileLoaded = status);
+  }
+
+  setFileContent(content) {
+    return (this.fileContent = content);
+  }
+
+  setFileLocked(status) {
+    return (this.fileLocked = status);
   }
 }
 
 decorate(ServerProvider, {
   agents: observable,
-  client: observable,
-  setClientStatus: action,
+  clientConnected: observable,
   addAgent: action,
   removeAgent: action,
   totalAgents: computed,
-  isClientConnected: computed
+  setClientStatus: action,
+  clientStatus: computed,
+  fileLoaded: observable,
+  setFileStatus: action,
+  setFileContent: action,
+  fileLocked: observable,
+  setFileLocked: action
 });
 
 const ServerStore = new ServerProvider();

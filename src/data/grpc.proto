@@ -16,13 +16,15 @@ message Result {
 
 message ResultAgentInfo {
     bool agentConnected = 1;
-    string details = 2;
-    bool clientConnected = 3;
+    bool clientConnected = 2;
+    repeated double numbers = 3;
+    string message = 4;
 }
 
 message AgentInfo {
     string name = 1;
     string os = 2;
+    repeated double orderedNumbers = 3;
 }
 
 message ClientInfo {

@@ -1,21 +1,33 @@
 import { observable, decorate, computed, action } from "mobx";
 
 class AgentProvider {
-  isConnected = false;
+  agentConnected = false;
+  clientConnected = false;
 
-  get status() {
-    return this.isConnected;
+  get clientStatus() {
+    return this.clientConnected;
   }
 
-  setStatus(status) {
-    return (this.isConnected = status);
+  get agentStatus() {
+    return this.agentConnected;
+  }
+
+  setClientStatus(status) {
+    return (this.clientConnected = status);
+  }
+
+  setAgentStatus(status) {
+    return (this.agentConnected = status);
   }
 }
 
 decorate(AgentProvider, {
-  isConnected: observable,
-  status: computed,
-  setStatus: action
+  agentConnected: observable,
+  clientConnected: observable,
+  agentStatus: computed,
+  clientStatus: computed,
+  setAgentStatus: action,
+  setClientStatus: action
 });
 
 export default AgentProvider;
