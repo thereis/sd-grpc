@@ -48,6 +48,7 @@ const init = async () => {
     connectClient.on("data", data => {
       console.log("data received", data);
     });
+    
   } catch (e) {
     console.log(e);
   }

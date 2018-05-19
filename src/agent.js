@@ -1,3 +1,5 @@
+"use strict";
+
 import { hostname, type } from "os";
 import { observe } from "mobx";
 import { argv } from "yargs";
@@ -79,32 +81,27 @@ const init = async () => {
       os: type()
     });
 
-    let count = 0;
-
     /**
      * If the masterserver send us the isConnected message,
      * then we register this status through AgentStore and fire isConnectedHandler
      */
     connectAgent.on("data", data => {
-      let details;
-
-      count = count + 1;
-
-      if (data.message !== "") {
-        //console.log(data);
-        console.log(count, "total de envios");
-      }
-
-      console.log(data.numbers.length, "recebi isso de numeros");
-
-      //console.log(data);
-
-      if (data.details) {
-        details = JSON.parse(data.details);
-      }
-
-      if (AgentStore.agentStatus === false && data.agentConnected === true) {
+      // Define if the agent is connected
+      if (AgentStore.agentConnected === false && data.agentConnected === true) {
         AgentStore.setAgentStatus(true);
+      }
+
+      // If client is connected, add the numbers to the list
+      if (data.numbers.length !== 0) {
+        console.log(`Adding ${data.numbers.length} numbers to the list...`);
+        AgentStore.addNumbers(data.numbers);
+      }
+
+      // If we have finished the adding, then sort
+      if (data.numbersSent) {
+        console.log(`Total numbers received: ${AgentStore.numbers.length}`);
+        console.log("Sorting...");
+        AgentStore.sortNumbers();
       }
     });
 

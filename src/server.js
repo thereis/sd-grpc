@@ -4,16 +4,10 @@ import ip from "ip";
 import grpc from "grpc";
 import ServerStore from "./store/server";
 
-/**
- * Load the file synchronous
- */
-const loadFile = async () => {
-  console.log("Loading file...");
+import _ from "lodash";
 
-  let content = await readFileSync(__dirname + "/data/data.in", "utf8");
-
-  return content.toString().split("\n");
-};
+// max chunk per chunks
+const MAX_CHUNK_PER_CHUNKS = 30000;
 
 /**
  * Global variables
@@ -21,7 +15,7 @@ const loadFile = async () => {
 
 let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto").SD.Project;
 
-function createServer() {
+function startServer() {
   const server = new grpc.Server();
 
   // Register the SendChunk service and methods
@@ -41,10 +35,10 @@ function createServer() {
     call.on("data", async data => {
       console.log(data);
 
-      if (!ServerStore.fileLoaded) {
-        let content = await loadChunks();
-        ServerStore.setFileContent(content);
-        ServerStore.setFileStatus(true);
+      if (!ServerStore.bundleLoaded) {
+        let bundle = await getBundle();
+        ServerStore.setBundle(bundle);
+        ServerStore.setBundleStatus(true);
       }
 
       ServerStore.setClientStatus(true);
@@ -58,32 +52,17 @@ function createServer() {
    */
   function connectAgent(call) {
     let connectedAgent = {
-      id: 0,
-      data: {},
-      fileLocked: false
+      bundleLocked: false
     };
 
     /**
      * Keep alive method
      */
     let streamInterval = setInterval(async () => {
-      // Check if client is connected
-      if (ServerStore.clientStatus) {
-        // Check if file is already loaded
-
-        if (!connectedAgent.fileLocked) {
-          console.log("vim aqui");
-          dataTrigger(ServerStore.fileContent[connectedAgent.id - 1]);
-          connectedAgent.fileLocked = true;
-          //ServerStore.setFileLocked(true);
-        }
-
-        // send the data
-        // call.write({
-        //   agentConnected: true,
-        //   clientConnected: true,
-        //   numbers: [1, 2, 3]
-        // });
+      // Check if client is connected and file is not locked
+      if (ServerStore.clientConnected && !connectedAgent.bundleLocked) {
+        sendBundle(ServerStore.bundle[connectedAgent.id - 1]);
+        connectedAgent.bundleLocked = true;
       } else {
         call.write({
           agentConnected: true,
@@ -92,41 +71,47 @@ function createServer() {
       }
     }, 1000);
 
-    const dataTrigger = async chunk => {
-      //console.log(ServerStore.fileContent);
-      let content = convertToDouble(chunk); // chega 300k
+    const sendBundle = async content => {
+      // split the content into chunks
+      let chunks = chunker(content, MAX_CHUNK_PER_CHUNKS);
 
-      let calculation = Math.ceil(content.length * 0.1); // 300k / 3000
-      let teste = chunker(content, calculation / 3);
+      console.log(
+        `Transferring ${chunks.length} chunks to agent ${connectedAgent.id}`
+      );
 
-      console.log(teste.length, "total de arrays", "resultado", calculation);
-
-      for (let value of teste) {
-        //console.log(value)
+      // send each chunk
+      chunks.map(chunk => {
         call.write({
           agentConnected: true,
           clientConnected: true,
-          numbers: value
+          numbers: chunk
         });
-      }
-
-      call.write({
-        message: "Terminei de processar"
       });
+
+      // Send a confirmation that we've sent all numbers
+      call.write({
+        numbersSent: true
+      });
+
+      return true;
     };
+
     /**
-     * On first data received, register the agent
+     * It will handle the agent write method
      */
     call.on("data", data => {
-      let id = ServerStore.totalAgents + 1;
-      console.log(
-        `New agent connected! Name: ${data.name} OS: ${data.os} ID: ${id}`
-      );
+      // Handles first connection
+      if (!connectedAgent.id) {
+        let id = ServerStore.totalAgents + 1;
 
-      connectedAgent = { id, data };
-      ServerStore.addAgent(connectedAgent);
+        connectedAgent = { id, data };
+        ServerStore.addAgent(connectedAgent);
 
-      console.log(`Agents connected: ${ServerStore.totalAgents}`);
+        console.log(
+          `New agent connected! Name: ${data.name} OS: ${data.os} ID: ${id}`
+        );
+        console.log(`Agents connected: ${ServerStore.totalAgents}`);
+      }
     });
 
     /**
@@ -136,12 +121,9 @@ function createServer() {
     call.on("cancelled", () => {
       // Clear the message interval
       clearTimeout(streamInterval);
-
-      console.log(`Agent ${connectedAgent.data.name} has been disconnected.`);
-
-      // It remove from the list
       ServerStore.removeAgent(connectedAgent);
 
+      console.log(`Agent ${connectedAgent.data.name} has been disconnected.`);
       console.log(`Now we have ${ServerStore.totalAgents} connected agent(s).`);
     });
 
@@ -153,6 +135,9 @@ function createServer() {
       Error: ${e}`);
     });
 
+    /**
+     * End the stream
+     */
     call.on("end", () => {
       clearInterval(streamInterval);
       console.log("Client disconnected!");
@@ -176,29 +161,60 @@ function createServer() {
   }
 }
 
-const loadChunks = async () => {
+/**
+ * Load synchronous the file
+ */
+const loadFile = async () => {
+  console.log("Loading file...");
+
+  let read = await readFileSync(__dirname + "/data/data.in", "utf8");
+  let content = read.toString().split("\n");
+
+  // convert to integer all content
+  return _.map(content, _.unary(parseInt));
+};
+
+/**
+ *
+ */
+const getBundle = async () => {
   try {
     /**
-     * Load configuration file
+     * load the file content
      */
-    let numbers = await loadFile();
+    let chunks = await loadFile();
+    let maxChunks = ServerStore.totalAgents;
 
-    const maxChunks = ServerStore.totalAgents;
-    //const maxChunks = 3;
-    const chunkDivisor = Math.ceil(numbers.length / maxChunks);
-    const chunks = chunker(numbers, chunkDivisor); // 300k para 3 agents
+    // max and min helper
+    let max = 0,
+      min = 0;
+
+    // Find min/max numbers
+    chunks.map(chunk => {
+      if (chunk < min) min = chunk;
+      if (chunk >= max) max = chunk;
+    });
+
+    // Get the number range
+    let division = Math.ceil(max / maxChunks);
+
+    // bundle it
+    let bundle = chunks.reduce((accumulator, value) => {
+      let slot = maxChunks <= 1 ? 0 : Math.floor(value / division);
+      (accumulator[slot] = accumulator[slot] || []).push(value);
+      return accumulator;
+    }, []);
 
     console.log("File loaded, ready to distribute...");
 
-    return chunks;
+    return bundle;
   } catch (e) {
     console.log(e);
   }
 };
 
 const init = async () => {
-  createServer();
-  //loadChunks();
+  startServer();
 };
 
 init();

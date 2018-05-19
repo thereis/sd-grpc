@@ -3,9 +3,10 @@ import { observable, action, computed, decorate } from "mobx";
 class ServerProvider {
   agents = [];
   clientConnected = false;
-  fileLoaded = false;
-  fileContent = null;
-  fileLocked = false;
+
+  bundle = null;
+  bundleLoaded = false;
+  bundleLocked = false;
 
   setClientStatus(status) {
     return (this.clientConnected = status);
@@ -24,20 +25,16 @@ class ServerProvider {
     return this.agents.length;
   }
 
-  get clientStatus() {
-    return this.clientConnected;
+  setBundleStatus(status) {
+    return (this.bundleLoaded = status);
   }
 
-  setFileStatus(status) {
-    return (this.fileLoaded = status);
+  setBundle(content) {
+    return (this.bundle = content);
   }
 
-  setFileContent(content) {
-    return (this.fileContent = content);
-  }
-
-  setFileLocked(status) {
-    return (this.fileLocked = status);
+  setBundleLocked(status) {
+    return (this.bundleLocked = status);
   }
 }
 
@@ -48,12 +45,12 @@ decorate(ServerProvider, {
   removeAgent: action,
   totalAgents: computed,
   setClientStatus: action,
-  clientStatus: computed,
-  fileLoaded: observable,
-  setFileStatus: action,
-  setFileContent: action,
-  fileLocked: observable,
-  setFileLocked: action
+  bundle: observable,
+  bundleLoaded: observable,
+  bundleLocked: observable,
+  setBundle: action,
+  setBundleStatus: action,
+  setBundleLocked: action
 });
 
 const ServerStore = new ServerProvider();
