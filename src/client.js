@@ -1,8 +1,10 @@
 import { hostname, type } from "os";
+import { createWriteStream } from "fs";
 import { observe } from "mobx";
 import { argv } from "yargs";
 
 import grpc from "grpc";
+import _ from "lodash";
 
 const init = async () => {
   try {
@@ -45,10 +47,24 @@ const init = async () => {
       os: type()
     });
 
+    let numbers = [];
+
+    let fileStream = createWriteStream(__dirname + "/data/data.out");
+
     connectClient.on("data", data => {
-      console.log("data received", data);
+      if (data.sortedNumbers.length > 0) {
+        numbers.push(data.sortedNumbers);
+      }
+
+      if (data.transferCompleted) {
+        // connectClient.end();
+        console.log("Finished");
+        console.log(numbers.length, _.flattenDeep(numbers).length);
+        let teste = _.flattenDeep(numbers);
+        fileStream.write(teste.join("\n"));
+        fileStream.close();
+      }
     });
-    
   } catch (e) {
     console.log(e);
   }

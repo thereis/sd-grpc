@@ -4,6 +4,7 @@ import ip from "ip";
 import grpc from "grpc";
 import ServerStore from "./store/server";
 
+import { toJS } from "mobx";
 import _ from "lodash";
 
 // max chunk per chunks
@@ -20,7 +21,6 @@ function startServer() {
 
   // Register the SendChunk service and methods
   server.addService(protoDescriptor.SendChunk.service, {
-    sendChunk,
     connectAgent,
     connectClient
   });
@@ -33,8 +33,6 @@ function startServer() {
 
   async function connectClient(call) {
     call.on("data", async data => {
-      console.log(data);
-
       if (!ServerStore.bundleLoaded) {
         let bundle = await getBundle();
         ServerStore.setBundle(bundle);
@@ -44,7 +42,36 @@ function startServer() {
       ServerStore.setClientStatus(true);
     });
 
-    call.write({ isConnected: true });
+    let streamInterval = setInterval(() => {
+      call.write({ isConnected: true });
+
+      if (ServerStore.transfersCompleted) {
+        clearInterval(streamInterval);
+        sendChunks(ServerStore.shallowBundle);
+      }
+    }, 500);
+
+    const sendChunks = content => {
+      let chunks = chunker(content, MAX_CHUNK_PER_CHUNKS);
+
+      chunks.map(chunk => {
+        call.write({
+          sortedNumbers: chunk
+        });
+      });
+
+      console.log("chunks: ", chunks.length);
+      // console.log("chunks: ", chunks);
+      console.log(content.length, "length of shallow bundle");
+
+      console.log(`The transfer to the client, has been completed.`);
+
+      call.write({
+        isConnected: true,
+        sortedNumbers: [],
+        transferCompleted: true
+      });
+    };
   }
 
   /**
@@ -52,26 +79,27 @@ function startServer() {
    */
   function connectAgent(call) {
     let connectedAgent = {
-      bundleLocked: false
+      bundleLocked: false,
+      transferCompleted: false
     };
 
     /**
      * Keep alive method
      */
-    let streamInterval = setInterval(async () => {
-      // Check if client is connected and file is not locked
+    let streamInterval = setInterval(() => {
+      // Check if client is connected and bundle is not locked
       if (ServerStore.clientConnected && !connectedAgent.bundleLocked) {
         sendBundle(ServerStore.bundle[connectedAgent.id - 1]);
         connectedAgent.bundleLocked = true;
       } else {
         call.write({
           agentConnected: true,
-          clientConnected: false
+          clientConnected: ServerStore.clientConnected
         });
       }
     }, 1000);
 
-    const sendBundle = async content => {
+    const sendBundle = content => {
       // split the content into chunks
       let chunks = chunker(content, MAX_CHUNK_PER_CHUNKS);
 
@@ -90,8 +118,15 @@ function startServer() {
 
       // Send a confirmation that we've sent all numbers
       call.write({
-        numbersSent: true
+        transferCompleted: true
       });
+
+      console.log(
+        `The transfer for agent ${connectedAgent.id} has been completed.`
+      );
+
+      // Clear the old bundle
+      ServerStore.bundle[connectedAgent.id - 1] = [];
 
       return true;
     };
@@ -100,7 +135,7 @@ function startServer() {
      * It will handle the agent write method
      */
     call.on("data", data => {
-      // Handles first connection
+      // First connection
       if (!connectedAgent.id) {
         let id = ServerStore.totalAgents + 1;
 
@@ -108,9 +143,19 @@ function startServer() {
         ServerStore.addAgent(connectedAgent);
 
         console.log(
-          `New agent connected! Name: ${data.name} OS: ${data.os} ID: ${id}`
+          `New agent connected! Name: ${data.name} OS: ${data.os} ID: ${id}`,
+          `Agents connected: ${ServerStore.totalAgents}`
         );
-        console.log(`Agents connected: ${ServerStore.totalAgents}`);
+      }
+
+      // If agent is sending some data
+      if (data.sortedNumbers.length > 0 && !data.transferCompleted) {
+        ServerStore.addToBundle(connectedAgent.id, data.sortedNumbers);
+      }
+
+      if (data.transferCompleted) {
+        console.log(`${connectedAgent.id} has finished his job.`);
+        ServerStore.updateAgent(connectedAgent.id, data);
       }
     });
 
@@ -123,14 +168,17 @@ function startServer() {
       clearTimeout(streamInterval);
       ServerStore.removeAgent(connectedAgent);
 
-      console.log(`Agent ${connectedAgent.data.name} has been disconnected.`);
-      console.log(`Now we have ${ServerStore.totalAgents} connected agent(s).`);
+      console.log(
+        `Agent ${connectedAgent.data.name} has been disconnected.`,
+        `Now we have ${ServerStore.totalAgents} connected agent(s).`
+      );
     });
 
     /**
      * If something weird happen
      */
     call.on("error", e => {
+      clearInterval(streamInterval);
       console.log(`Oops, something wrong happened! Agent ID: ${connectAgent.id}
       Error: ${e}`);
     });
@@ -140,24 +188,8 @@ function startServer() {
      */
     call.on("end", () => {
       clearInterval(streamInterval);
-      console.log("Client disconnected!");
+      console.log(`Agent ${connectedAgent.id} has been disconnected!`);
     });
-  }
-
-  function sendChunk(call, callback) {
-    let data = [];
-
-    console.log("callHeaders", call);
-
-    call.on("data", item => {
-      data = item.numbers;
-    });
-
-    let result = data.sort();
-
-    console.log(result, "result here");
-
-    call.on("end", () => callback(null, data.sort((a, b) => a - b)));
   }
 }
 

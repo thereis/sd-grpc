@@ -6,6 +6,10 @@ import { argv } from "yargs";
 
 import grpc from "grpc";
 import AgentProvider from "./store/agent";
+import { chunker } from "./utils";
+
+// max chunk per chunks
+const MAX_CHUNK_PER_CHUNKS = 30000;
 
 /**
  * Main application function
@@ -98,12 +102,41 @@ const init = async () => {
       }
 
       // If we have finished the adding, then sort
-      if (data.numbersSent) {
+      if (data.transferCompleted) {
         console.log(`Total numbers received: ${AgentStore.numbers.length}`);
-        console.log("Sorting...");
+        console.log("Sorting the numbers...");
         AgentStore.sortNumbers();
+
+        console.log("Sorting completed.");
+
+        // Now it will send the numbers back to masterserver
+        sendToMasterserver();
       }
     });
+
+    /**
+     * Transfer back the sorted numbers
+     */
+    const sendToMasterserver = () => {
+      let chunks = chunker(AgentStore.numbers, MAX_CHUNK_PER_CHUNKS);
+
+      console.log(`Sending the chunks back to masterserver...`);
+
+      chunks.map(chunk => {
+        connectAgent.write({
+          sortedNumbers: chunk
+        });
+      });
+
+      connectAgent.write({
+        sortedNumbers: [],
+        transferCompleted: true
+      });
+
+      console.log(`Sent! Killing the agent...`);
+      connectAgent.end();
+      // process.exit(0);
+    };
 
     /**
      * If occurs an error
@@ -121,23 +154,6 @@ const init = async () => {
     connectAgent.on("end", () => {
       console.log(`The transaction has finished.`);
     });
-
-    // connectAgent.end();
-
-    //if (AgentStore.isConnected) console.log("isconnectedbitch");
-
-    //let response = connectAgent.end();
-
-    //if (response) console.log("Connected to the master server!");
-    //else return console.log(`You're not able to connect to the master server`);
-
-    //connectClient.end();
-
-    //let call = client.sendChunk((error, result) => console.log(error, result));
-
-    //call.write({ numbers: convertToDouble(chunks[0]) });
-
-    //call.end();
   } catch (e) {
     console.log(e);
   }

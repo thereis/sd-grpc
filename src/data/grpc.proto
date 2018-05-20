@@ -2,16 +2,11 @@ syntax = "proto3";
 
 package SD.Project;
 
-message Struct {
-    string value = 1;
-}
-
-message Chunk {
-    repeated double numbers = 1;
-}
-
-message Result {
-    repeated double orderedNumbers = 1;
+message AgentInfo {
+    string name = 1;
+    string os = 2;
+    repeated double sortedNumbers = 3;
+    bool transferCompleted = 4;
 }
 
 message ResultAgentInfo {
@@ -19,12 +14,7 @@ message ResultAgentInfo {
     bool clientConnected = 2;
     repeated double numbers = 3;
     bool numbersSent = 4;
-}
-
-message AgentInfo {
-    string name = 1;
-    string os = 2;
-    repeated double sortedNumbers = 3;
+    bool transferCompleted = 5;
 }
 
 message ClientInfo {
@@ -34,10 +24,11 @@ message ClientInfo {
 
 message ResultClientInfo {
     bool isConnected = 1;
+    repeated double sortedNumbers = 2;
+    bool transferCompleted = 3;
 }
 
 service SendChunk {
-    rpc sendChunk(stream Chunk) returns (stream Result);
     rpc connectAgent(stream AgentInfo) returns (stream ResultAgentInfo);
     rpc connectClient(stream ClientInfo) returns (stream ResultClientInfo);
 }
