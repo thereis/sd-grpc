@@ -15,7 +15,6 @@ const MAX_CHUNK_PER_CHUNKS = 30000;
 /**
  * Global variables
  */
-
 let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto").SD.Project;
 
 // Initialize the server
@@ -63,11 +62,11 @@ function startServer() {
         });
       });
 
-      console.log("chunks: ", chunks.length);
+      signale.info("chunks: ", chunks.length);
       // console.log("chunks: ", chunks);
-      console.log(content.length, "length of shallow bundle");
+      signale.info(content.length, "length of shallow bundle");
 
-      console.log(`The transfer to the client, has been completed.`);
+      signale.info(`The transfer to the client, has been completed.`);
 
       call.write({
         isConnected: true,
@@ -182,7 +181,9 @@ function startServer() {
      */
     call.on("error", e => {
       clearInterval(streamInterval);
-      signale.error(`Oops, something wrong happened! Agent ID: ${connectAgent.id}
+      signale.error(`Oops, something wrong happened! Agent ID: ${
+        connectAgent.id
+      }
       Error: ${e}`);
     });
 
