@@ -4,6 +4,8 @@ import { hostname, type } from "os";
 import { observe } from "mobx";
 import { argv } from "yargs";
 
+import signale from "signale";
+
 import grpc from "grpc";
 import AgentProvider from "./store/agent";
 import { chunker } from "./utils";
@@ -14,21 +16,8 @@ const MAX_CHUNK_PER_CHUNKS = 30000;
 /**
  * Main application function
  */
-const init = async () => {
+const init = async (ip, port) => {
   try {
-    /**
-     * Check if arguments have been passed
-     */
-    let ip = argv.ip,
-      port = argv.port;
-
-    if (!ip || !port)
-      throw new Error(
-        "You need to use the --ip and --port flag to initialize the agent."
-      );
-    if (ip === "" || port === true)
-      throw new Error("Provide a value to ip and port.");
-
     /**
      * Initialize DataStore
      */
@@ -55,7 +44,8 @@ const init = async () => {
       grpc.credentials.createInsecure()
     );
 
-    console.log("Connecting...");
+    // Connecting to masterserver message
+    signale.info(`Connecting to: ${ip}:${port}`);
 
     /**
      * Connect and register the agent into masterserver
@@ -63,7 +53,7 @@ const init = async () => {
      */
     let connectAgent = agent.connectAgent((error, result) => {
       if (error) {
-        console.log(`Something went wrong!\n\nError: ${error}`);
+        signale.error(`Something went wrong!\n\nError: ${error}`);
       }
     });
 
@@ -72,13 +62,13 @@ const init = async () => {
      * then we are connected!
      */
     const isConnectedHandler = async () => {
-      console.log(
+      signale.success(
         "Connected to the masterserver... waiting for the client to be connected."
       );
     };
 
     /**
-     * register the agent information to the masterserver
+     * Registers the agent information to the masterserver
      */
     connectAgent.write({
       name: hostname(),
@@ -97,19 +87,20 @@ const init = async () => {
 
       // If client is connected, add the numbers to the list
       if (data.numbers.length !== 0) {
-        console.log(`Adding ${data.numbers.length} numbers to the list...`);
+        signale.await(`Adding ${data.numbers.length} numbers to the list...`);
         AgentStore.addNumbers(data.numbers);
       }
 
       // If we have finished the adding, then sort
       if (data.transferCompleted) {
-        console.log(`Total numbers received: ${AgentStore.numbers.length}`);
-        console.log("Sorting the numbers...");
+        signale.success(`Total numbers received: ${AgentStore.numbers.length}`);
+        signale.await("Sorting the numbers...");
+
+        // Sort the numbers
         AgentStore.sortNumbers();
 
-        console.log("Sorting completed.");
-
         // Now it will send the numbers back to masterserver
+        signale.success("Sorting completed.");
         sendToMasterserver();
       }
     });
@@ -120,7 +111,7 @@ const init = async () => {
     const sendToMasterserver = () => {
       let chunks = chunker(AgentStore.numbers, MAX_CHUNK_PER_CHUNKS);
 
-      console.log(`Sending the chunks back to masterserver...`);
+      signale.await(`Sending the chunks back to masterserver...`);
 
       chunks.map(chunk => {
         connectAgent.write({
@@ -133,7 +124,7 @@ const init = async () => {
         transferCompleted: true
       });
 
-      console.log(`Sent! Killing the agent...`);
+      signale.complete(`Sent! Killing the agent...`);
       connectAgent.end();
       // process.exit(0);
     };
@@ -142,7 +133,7 @@ const init = async () => {
      * If occurs an error
      */
     connectAgent.on("error", e => {
-      console.log(
+      signale.error(
         `Oops! Probably you've lost the connection to the masterserver.
         Error: ${e}`
       );
@@ -152,10 +143,10 @@ const init = async () => {
      * Confirmation
      */
     connectAgent.on("end", () => {
-      console.log(`The transaction has finished.`);
+      signale.complete(`The transaction has finished.`);
     });
   } catch (e) {
-    console.log(e);
+    signale.error(e);
   }
 };
 
@@ -163,7 +154,25 @@ const init = async () => {
  * Initialize the main application
  */
 
-console.log("Initializing...");
+signale.info("Initializing...");
 setTimeout(() => {
-  init();
-}, 1000);
+  try {
+    /**
+     * Check if arguments have been passed
+     */
+    let ip = argv.ip,
+      port = argv.port;
+
+    if (!ip || !port)
+      throw new Error(
+        "You need to use the -- --ip --port flag to initialize the client."
+      );
+    if (ip === "" || port === true)
+      throw new Error("Provide a value to ip and port.");
+
+    // Init the application
+    init(ip, port);
+  } catch (e) {
+    signale.error(e.message);
+  }
+}, 1500);

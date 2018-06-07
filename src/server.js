@@ -1,11 +1,13 @@
-import { readFileSync } from "fs";
-import { chunker, convertToDouble } from "./utils";
 import ip from "ip";
 import grpc from "grpc";
-import ServerStore from "./store/server";
+import signale from "signale";
 
-import { toJS } from "mobx";
+import { readFileSync } from "fs";
+import { chunker, convertToDouble } from "./utils";
+
 import _ from "lodash";
+
+import ServerStore from "./store/server";
 
 // max chunk per chunks
 const MAX_CHUNK_PER_CHUNKS = 30000;
@@ -16,6 +18,7 @@ const MAX_CHUNK_PER_CHUNKS = 30000;
 
 let protoDescriptor = grpc.load(__dirname + "/data/grpc.proto").SD.Project;
 
+// Initialize the server
 function startServer() {
   const server = new grpc.Server();
 
@@ -29,7 +32,7 @@ function startServer() {
   server.bind("0.0.0.0:50051", grpc.ServerCredentials.createInsecure());
   server.start();
 
-  console.log(`Masterserver is up! IP: ${ip.address()} Port: 50051`);
+  signale.start(`Masterserver is up! IP: ${ip.address()} Port: 50051`);
 
   async function connectClient(call) {
     call.on("data", async data => {
@@ -103,7 +106,7 @@ function startServer() {
       // split the content into chunks
       let chunks = chunker(content, MAX_CHUNK_PER_CHUNKS);
 
-      console.log(
+      signale.await(
         `Transferring ${chunks.length} chunks to agent ${connectedAgent.id}`
       );
 
@@ -121,7 +124,7 @@ function startServer() {
         transferCompleted: true
       });
 
-      console.log(
+      signale.success(
         `The transfer for agent ${connectedAgent.id} has been completed.`
       );
 
@@ -142,7 +145,7 @@ function startServer() {
         connectedAgent = { id, data };
         ServerStore.addAgent(connectedAgent);
 
-        console.log(
+        signale.info(
           `New agent connected! Name: ${data.name} OS: ${data.os} ID: ${id}`,
           `Agents connected: ${ServerStore.totalAgents}`
         );
@@ -154,7 +157,7 @@ function startServer() {
       }
 
       if (data.transferCompleted) {
-        console.log(`${connectedAgent.id} has finished his job.`);
+        signale.complete(`${connectedAgent.id} has finished his job.`);
         ServerStore.updateAgent(connectedAgent.id, data);
       }
     });
@@ -168,7 +171,7 @@ function startServer() {
       clearTimeout(streamInterval);
       ServerStore.removeAgent(connectedAgent);
 
-      console.log(
+      signale.complete(
         `Agent ${connectedAgent.data.name} has been disconnected.`,
         `Now we have ${ServerStore.totalAgents} connected agent(s).`
       );
@@ -179,7 +182,7 @@ function startServer() {
      */
     call.on("error", e => {
       clearInterval(streamInterval);
-      console.log(`Oops, something wrong happened! Agent ID: ${connectAgent.id}
+      signale.error(`Oops, something wrong happened! Agent ID: ${connectAgent.id}
       Error: ${e}`);
     });
 
@@ -188,7 +191,7 @@ function startServer() {
      */
     call.on("end", () => {
       clearInterval(streamInterval);
-      console.log(`Agent ${connectedAgent.id} has been disconnected!`);
+      signale.error(`Agent ${connectedAgent.id} has been disconnected!`);
     });
   }
 }
@@ -197,7 +200,7 @@ function startServer() {
  * Load synchronous the file
  */
 const loadFile = async () => {
-  console.log("Loading file...");
+  signale.info("Loading file...");
 
   let read = await readFileSync(__dirname + "/data/data.in", "utf8");
   let content = read.toString().split("\n");
@@ -237,15 +240,16 @@ const getBundle = async () => {
       return accumulator;
     }, []);
 
-    console.log("File loaded, ready to distribute...");
+    signale.sucess("File loaded, ready to distribute...");
 
     return bundle;
   } catch (e) {
-    console.log(e);
+    signale.error(e.message);
   }
 };
 
 const init = async () => {
+  signale.info("Initializing masterserver...");
   startServer();
 };
 
