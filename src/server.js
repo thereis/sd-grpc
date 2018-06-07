@@ -241,7 +241,7 @@ const getBundle = async () => {
       return accumulator;
     }, []);
 
-    signale.sucess("File loaded, ready to distribute...");
+    signale.success("File loaded, ready to distribute...");
 
     return bundle;
   } catch (e) {
