@@ -36,20 +36,27 @@ const init = async (ip, port) => {
       os: type()
     });
 
+    /**
+     * If masterserver send us isConnected confirmation,
+     * then we are connected!
+     */
+    signale.success(
+      "Connected to the masterserver... waiting to transfer the numbers."
+    );
+
     let numbers = [];
     let fileStream = createWriteStream(__dirname + "/data/data.out");
 
     connectClient.on("data", data => {
+      signale.info("Receiving chunk data...");
+
       if (data.sortedNumbers.length > 0) {
         numbers.push(data.sortedNumbers);
       }
 
       if (data.transferCompleted) {
-        // connectClient.end();
         signale.success("Finished");
-        //console.log(numbers.length, _.flattenDeep(numbers).length);
-        let teste = _.flattenDeep(numbers);
-        fileStream.write(teste.join("\n"));
+        fileStream.write(_.flattenDeep(numbers).join("\n"));
         fileStream.close();
       }
     });
